@@ -22,7 +22,7 @@ npm install
 Run the script providing path to the TestCaseLabs CSV file
 
 ```
-node convert.js <path-to-qmetry-csv>
+node convert.js <path-to-testcase-labs-csv>
 ```
 
 Example:
