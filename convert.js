@@ -23,8 +23,10 @@ function convertTestCases(inputFile, outputFile) {
     // Read and parse input CSV
     const inputData = fs.readFileSync(inputFile, 'utf-8');
     const records = csv.parse(inputData, {
-        columns: true,
-        skip_empty_lines: true
+      columns: true,
+      relax_column_count: true,
+      skip_empty_lines: true,
+      trim: true,
     });
 
     // Define required columns for our new format
@@ -46,24 +48,32 @@ function convertTestCases(inputFile, outputFile) {
     records.forEach(record => {
         console.log('✅', record['Title']);
 
-        // Build steps from the step/result pairs
         const steps = [];
+        const labels = [];
+
+        let description = record['Description'] || '';
 
         // Add precondition if it exists in description
-        if (record['Description'] && record['Description'].includes('Preconditions')) {
-            let preconditions = record['Description'].split('Preconditions')[1].trim();
-            // Ensure we don't have isolated ** characters
-            preconditions = preconditions.replace(/\*\*/g, '');
-            steps.push('\n## Precondition\n\n' + cleanHtml(preconditions));
+        if (description.includes('Preconditions')) {
+            description = description.replace(/\*\*Preconditions\*\*/g, '## Preconditions');
+        }
+
+        description = processDescriptionLinks(description)
+
+
+        if (record['Test Type']) {
+          labels.push(record['Test Type'])
         }
 
         // Add steps section header
         steps.push('\n\n## Steps\n');
 
         // Process step/result pairs (Step 1/Result 1, Step 2/Result 2, etc.)
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i <= 100; i++) {
             const stepKey = `Step ${i}`;
             const resultKey = `Result ${i}`;
+
+            if (!record[stepKey]) break;
 
             if (record[stepKey] && record[stepKey].trim()) {
                 steps.push(`* ${cleanHtml(record[stepKey].trim())}`);
@@ -91,18 +101,16 @@ function convertTestCases(inputFile, outputFile) {
 
         // Create test case object
         const testCase = {
-            'ID': `TS${record['Key']}`,
+            'ID': createId(record['Key']),
             'Title': record['Title'],
             'Folder': record['Suite'].replace(/->/g, '/'), // Replace -> with / for proper nesting
             'Emoji': '',
             'Priority': mapPriority(record['Priority']),
             'Tags': record['Tags'] || '',
             'Owner': record['Created By'] || '',
-            'Description': steps.join('\n'),
+            'Description': description + '\n\n' + steps.join('\n'),
             'Examples': '',
-            'Labels': '',
-            'Url': '',
-            'Matched': ''
+            'Labels': labels.join(','),
         };
 
         transformedData.push(testCase);
@@ -149,4 +157,19 @@ try {
     convertTestCases(inputFile, outputFile);
 } catch (error) {
     console.error('Error during conversion:', error.message);
+}
+
+function createId(Id) {
+  if (!Id) return;
+  return `T${Id.toString().replace(/-/g, '').toLowerCase().padStart(8, '0')}`;
+}
+
+function processDescriptionLinks(description) {
+  if (!description) return description;
+
+  const regex = /https?:\/\/[^\/]*testcaselab\.com\/projects\/[^\/]+\/test_cases\?text=([^&\s"']+)/g;
+
+  return description.replace(regex, (match, textParam) => {
+    return `[${textParam}](${createId(textParam).slice(1)})`;
+  });
 }
