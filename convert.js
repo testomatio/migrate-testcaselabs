@@ -170,6 +170,6 @@ function processDescriptionLinks(description) {
   const regex = /https?:\/\/[^\/]*testcaselab\.com\/projects\/[^\/]+\/test_cases\?text=([^&\s"']+)/g;
 
   return description.replace(regex, (match, textParam) => {
-    return `[${textParam}](${createId(textParam).slice(1)})`;
+    return `\n@${createId(textParam)}`;
   });
 }
